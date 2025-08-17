@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دستیار هوشمند پوست</title>
+    
+    <!-- PWA & Add to Home Screen Meta Tags -->
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="دستیار پوست">
+    <meta name="description" content="دستیار هوشمند برای تحلیل اولیه بیماری‌های پوستی">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Prevent scrolling on the body */
+        }
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #f8fafc; /* Softer Background: Slate-50 */
+        }
+        /* Allow scrolling only on the main content area */
+        .content-wrapper {
+            overflow-y: auto;
+        }
+        main {
+            height: 100%;
+            max-height: 100vh; /* Ensure main doesn't exceed viewport height */
+        }
+        @media (min-width: 640px) {
+            html, body {
+                height: auto;
+                overflow: auto;
+            }
+            main {
+                height: auto;
+                max-height: none;
+            }
+            /* On larger screens, if results are shown, allow content to scroll */
+            main.results-shown .content-wrapper {
+                overflow-y: auto;
+                max-height: calc(100vh - 100px); /* Adjust as needed */
+            }
+        }
+        .form-input, .custom-select-button, .form-textarea {
+            background-color: #ffffff;
+            border-color: #9ca3af;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            text-align: right; 
+        }
+        .form-input:focus, .custom-select-button:focus, .form-textarea:focus, .symptom-tag:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+            outline: none;
+        }
+        .file-drop-zone {
+            background-color: #f9fafb;
+            border: 2px dashed #d1d5db;
+            transition: border-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+        }
+        .file-drop-zone.dragover {
+            border-color: #4f46e5;
+            background-color: #f0f5ff;
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: #ffffff;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+            transform: translateY(-1px);
+        }
+        .btn-primary:disabled {
+            background-color: #a5b4fc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background-color: #ffffff;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+        }
+        .btn-secondary:hover {
+            background-color: #f9fafb;
+        }
+        .validation-error-message {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            min-height: 1.25rem;
+        }
+        .input-error {
+            border-color: #ef4444 !important;
+        }
+        .symptom-tag {
+            cursor: pointer;
+            border: 1px solid #d1d5db;
+            background-color: #ffffff;
+            transition: all 0.2s ease-in-out;
+        }
+        .symptom-tag.selected {
+            background-color: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+        }
+        .form-step {
+            display: none;
+        }
+        .form-step.active {
+            display: flex; /* Changed to flex for vertical alignment */
+            flex-direction: column;
+            height: 100%;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .custom-select-options {
+            transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+        }
+        #splash-screen {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        #splash-screen.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        #splash-content {
+            transform: scale(0.95);
+            opacity: 0;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        #splash-screen.visible #splash-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+        .accordion-header {
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out, border-radius 0.3s ease-in-out;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+            padding: 0 1rem;
+            background-color: #ffffff;
+            border-bottom-left-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+        .accordion-content p {
+            font-size: 0.9rem;
+            line-height: 1.7;
+            text-align: justify;
+            color: #4b5563;
+        }
+        .accordion-header .accordion-icon {
+            transition: transform 0.3s ease-in-out;
+        }
+        .accordion-item.active .accordion-header {
+            border-bottom-right-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        .accordion-item.active .accordion-header .accordion-icon {
+            transform: rotate(180deg);
+        }
+        .accordion-item.active .accordion-content {
+            padding: 1.25rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+        }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col items-center sm:justify-center p-0 sm:p-6">
+    
+    <div id="splash-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-60 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full m-4 text-right" id="splash-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">سلب مسئولیت مهم</h2>
+            <p class="text-gray-600 mb-6 leading-relaxed">
+                این ابزار یک دستیار هوشمند است و نتایج آن بر اساس هوش مصنوعی تولید می‌شود. تحلیل ارائه شده <strong>جایگزین نظر پزشک متخصص نیست</strong>. لطفاً برای تشخیص قطعی و درمان، حتماً با یک پزشک مشورت کنید. این ابزار فقط برای اهداف اطلاعاتی اولیه طراحی شده است.
+            </p>
+            <button id="accept-disclaimer" class="w-full btn-primary rounded-lg py-3 px-8 text-base font-semibold">متوجه شدم و ادامه می‌دهم</button>
+        </div>
+    </div>
+
+    <!-- Main container is now a flex column to pin navigation to the bottom -->
+    <main id="main-container" class="w-full max-w-3xl bg-white sm:shadow-lg sm:border sm:border-gray-200 overflow-hidden sm:rounded-2xl flex flex-col">
+        <!-- This wrapper will contain all content except the navigation buttons -->
+        <div class="content-wrapper flex-grow flex flex-col p-5 sm:p-8 md:p-10">
+            <div class="text-center mb-6 sm:mb-8">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">دستیار هوشمند پوست</h1>
+                <p id="header-subtitle" class="mt-3 text-gray-500">برای دریافت یک تحلیل اولیه، لطفاً فرم زیر را با دقت تکمیل نمایید.</p>
+            </div>
+
+            <div id="progress-container" class="mb-6 sm:mb-8">
+                <div class="relative pt-1">
+                    <div class="flex mb-2 items-center justify-between">
+                        <div>
+                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-100">
+                                مرحله <span id="step-counter">1</span> از 3
+                            </span>
+                        </div>
+                    </div>
+                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded-full bg-indigo-100">
+                        <div id="progress-bar" style="width: 33.33%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-500 rounded-full"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form now grows to fill available space -->
+            <form id="skin-analysis-form" novalidate class="flex-grow flex flex-col">
+                <div id="form-steps-container" class="flex-grow">
+                    <!-- Step 1: Personal Information -->
+                    <div class="form-step active" data-step="1">
+                        <fieldset class="flex-grow flex flex-col">
+                            <legend class="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-4 mb-8">اطلاعات شخصی</legend>
+                            <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:gap-x-6 items-end">
+                                <div class="mb-6 md:mb-0">
+                                    <label for="age" class="block text-sm font-medium text-gray-600 mb-2">سن</label>
+                                    <input type="number" name="age" id="age" required min="2" max="100" class="form-input block w-full rounded-lg shadow-sm sm:text-sm h-12 px-4 border" placeholder="مثال: ۳۴">
+                                    <p class="validation-error-message" style="visibility: hidden;"></p>
+                                </div>
+                                <div class="hidden md:block h-12 border-l border-gray-200 mb-7"></div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-600 mb-2">جنسیت</label>
+                                    <div id="gender-tag-group" class="flex items-center space-x-4 space-x-reverse h-12">
+                                        <span class="symptom-tag gender-tag flex-1 justify-center items-center flex py-2 rounded-full text-center text-sm" data-value="female" tabindex="0">زن</span>
+                                        <span class="symptom-tag gender-tag flex-1 justify-center items-center flex py-2 rounded-full text-center text-sm" data-value="male" tabindex="0">مرد</span>
+                                    </div>
+                                    <input type="hidden" name="gender" id="gender" required>
+                                    <p class="validation-error-message" style="visibility: hidden;"></p>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <!-- Step 2: Symptom Details -->
+                    <div class="form-step" data-step="2">
+                        <fieldset class="flex-grow flex flex-col">
+                            <legend class="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-4 mb-6">جزئیات علائم</legend>
+                            <div class="grid grid-cols-1 gap-y-4 sm:gap-y-6">
+                                <div class="relative">
+                                    <label for="onset-button" class="block text-sm font-medium text-gray-600 mb-2">شروع علائم</label>
+                                    <input type="hidden" name="onset" id="onset" required>
+                                    <button type="button" id="onset-button" class="custom-select-button flex items-center justify-between w-full rounded-lg shadow-sm h-12 px-4 border">
+                                        <span id="onset-label" class="text-gray-500">مدت زمان را انتخاب کنید...</span>
+                                        <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                    </button>
+                                    <div id="onset-options" class="custom-select-options absolute z-10 mt-1 w-full bg-white shadow-lg rounded-lg border border-gray-200 hidden opacity-0 transform scale-95">
+                                        <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 border-b border-gray-100" data-value="دقایق تا ساعت‌ها">دقایق تا ساعت‌ها</a>
+                                        <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 border-b border-gray-100" data-value="ساعت‌ها تا روزها">ساعت‌ها تا روزها</a>
+                                        <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 border-b border-gray-100" data-value="روزها تا هفته‌ها">روزها تا هفته‌ها</a>
+                                        <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 border-b border-gray-100" data-value="هفته‌ها تا ماه‌ها">هفته‌ها تا ماه‌ها</a>
+                                        <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50" data-value="ماه‌ها تا سال‌ها">ماه‌ها تا سال‌ها</a>
+                                    </div>
+                                    <p class="validation-error-message" style="visibility: hidden;"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-600 mb-2">علائم (اختیاری)</label>
+                                    <div class="flex items-center space-x-4 space-x-reverse h-12">
+                                        <span class="symptom-tag py-2 rounded-full flex-1 text-center text-sm" data-value="itching">خارش</span>
+                                        <span class="symptom-tag py-2 rounded-full flex-1 text-center text-sm" data-value="pain">درد</span>
+                                        <span class="symptom-tag py-2 rounded-full flex-1 text-center text-sm" data-value="fever">تب</span>
+                                        <input type="hidden" name="symptoms" id="symptoms-hidden-input">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="additional-info" class="block text-sm font-medium text-gray-600 mb-2">اطلاعات تکمیلی (اختیاری)</label>
+                                    <textarea id="additional-info" name="additional-info" rows="3" class="form-textarea block w-full rounded-lg shadow-sm sm:text-sm border p-3" placeholder="جزئیات مرتبط دیگر را شرح دهید..."></textarea>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+
+                    <!-- Step 3: Image Upload -->
+                    <div class="form-step" data-step="3">
+                        <fieldset class="flex-grow flex flex-col">
+                            <legend class="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-4 mb-6">بارگذاری تصویر</legend>
+                            <div class="flex-grow flex flex-col justify-center">
+                                <label class="block text-sm font-medium text-gray-600 mb-2">یک تصویر واضح از ناحیه آسیب دیده بارگذاری کنید</label>
+                                <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="image/png, image/jpeg, image/jpg" required>
+                                <label for="file-upload" id="file-drop-zone" class="relative file-drop-zone flex flex-col items-center justify-center rounded-xl p-4 cursor-pointer w-full flex-grow min-h-[200px]">
+                                    <div id="upload-prompt" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                                        <svg class="mx-auto h-10 w-10 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                        <p class="font-semibold text-gray-700 text-sm">برای بارگذاری، اینجا کلیک کنید</p>
+                                        <p class="text-xs text-gray-500 mt-1">یا فایل را بکشید و رها کنید</p>
+                                        <p class="text-xs text-gray-500 mt-3">PNG, JPG, JPEG (حداکثر ۱۰ مگابایت)</p>
+                                    </div>
+                                    <div id="file-preview" class="absolute inset-0 p-2 hidden flex-col">
+                                        <div class="flex-1 relative min-h-0">
+                                            <img id="preview-image" src="" class="absolute inset-0 m-auto max-h-full max-w-full object-contain rounded-lg" alt="پیش‌نمایش تصویر"/>
+                                        </div>
+                                        <div class="flex-shrink-0 w-full flex items-center justify-between mt-1">
+                                            <p id="file-name" class="text-xs font-medium text-gray-800 truncate"></p>
+                                            <button type="button" id="remove-file" class="p-1 rounded-full hover:bg-red-100 text-red-600 transition-colors">
+                                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </label>
+                                <p class="validation-error-message" style="visibility: hidden;"></p>
+                                <p class="text-xs text-gray-500 mt-2">نکته: برای بهترین نتیجه، از نور خوب و فوکوس واضح اطمینان حاصل کنید.</p>
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+                <!-- Success Message & Results -->
+                <div id="success-message" class="hidden text-center flex-grow flex flex-col">
+                    <div class="flex-shrink-0 pt-10">
+                        <svg class="mx-auto h-16 w-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <h2 class="mt-4 text-3xl font-bold text-gray-800">تحلیل اولیه آماده شد</h2>
+                        <p class="mt-2 text-gray-600 mb-8">بر اساس اطلاعاتی که ارائه دادید، اینها برخی از احتمالات هستند. برای مشاهده توضیحات، روی هر مورد کلیک کنید.</p>
+                    </div>
+                    
+                    <div id="analysis-results-accordion" class="space-y-3 text-right flex-grow">
+                        <!-- Accordion items will be inserted here -->
+                    </div>
+
+                    <!-- Results page buttons -->
+                    <div id="results-buttons" class="hidden mt-8 flex flex-col sm:flex-row sm:justify-between gap-4">
+                        <button type="button" id="revise-button" class="btn-primary rounded-lg py-2.5 px-8 text-sm font-semibold w-full sm:w-[48%]">بررسی توسط پزشک</button>
+                        <button type="button" id="start-again-button" class="btn-secondary rounded-lg py-2.5 px-8 text-sm font-semibold w-full sm:w-[48%]">شروع مجدد</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Navigation is now a separate flex item, it will not scroll -->
+        <div id="navigation-buttons" class="flex-shrink-0 bg-gray-50 px-6 sm:px-10 py-4 flex justify-between items-center border-t border-gray-200">
+            <div>
+                <button type="button" id="next-button" class="btn-primary rounded-lg py-2.5 px-8 text-sm font-semibold">بعدی</button>
+                <button type="submit" form="skin-analysis-form" id="submit-button" class="btn-primary w-auto inline-flex justify-center items-center rounded-lg py-2.5 px-4 sm:px-8 text-sm font-semibold hidden">
+                    <span id="submit-button-text">ارسال و اجرای تحلیل</span>
+                    <svg id="submit-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </button>
+            </div>
+            <button type="button" id="prev-button" class="btn-secondary rounded-lg py-2.5 px-8 text-sm font-semibold">قبلی</button>
+        </div>
+    </main>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Splash Screen Logic
+            const splashScreen = document.getElementById('splash-screen');
+            const acceptDisclaimerBtn = document.getElementById('accept-disclaimer');
+            const ageInput = document.getElementById('age');
+
+            setTimeout(() => {
+                splashScreen.classList.add('visible');
+            }, 100);
+
+            acceptDisclaimerBtn.addEventListener('click', () => {
+                splashScreen.classList.remove('visible');
+                setTimeout(() => {
+                    splashScreen.style.display = 'none';
+                    ageInput.focus();
+                }, 300);
+            });
+
+            // Form Logic
+            const mainContainer = document.getElementById('main-container');
+            const form = document.getElementById('skin-analysis-form');
+            const steps = Array.from(document.querySelectorAll('.form-step'));
+            const prevButton = document.getElementById('prev-button');
+            const nextButton = document.getElementById('next-button');
+            const submitButton = document.getElementById('submit-button');
+            const progressBar = document.getElementById('progress-bar');
+            const stepCounter = document.getElementById('step-counter');
+            const navigationButtons = document.getElementById('navigation-buttons');
+            const resultsButtons = document.getElementById('results-buttons');
+            const startAgainButton = document.getElementById('start-again-button');
+            const successMessage = document.getElementById('success-message');
+            const formStepsContainer = document.getElementById('form-steps-container');
+            const progressContainer = document.getElementById('progress-container');
+            
+            let currentStep = 1;
+
+            const stepFields = {
+                1: ['age', 'gender'],
+                2: ['onset'],
+                3: ['file-upload']
+            };
+            
+            ageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const firstGenderTag = document.querySelector('.gender-tag');
+                    if (firstGenderTag) {
+                        firstGenderTag.focus();
+                    }
+                }
+            });
+
+            const updateButtons = () => {
+                prevButton.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+                nextButton.classList.toggle('hidden', currentStep === steps.length);
+                submitButton.classList.toggle('hidden', currentStep !== steps.length);
+            };
+
+            const goToStep = (stepNumber) => {
+                steps.forEach(step => {
+                    step.classList.toggle('active', parseInt(step.dataset.step) === stepNumber);
+                });
+                currentStep = stepNumber;
+                progressBar.style.width = `${(currentStep / steps.length) * 100}%`;
+                stepCounter.textContent = currentStep;
+                updateButtons();
+            };
+
+            nextButton.addEventListener('click', () => {
+                if (validateCurrentStep()) {
+                    if (currentStep < steps.length) {
+                        goToStep(currentStep + 1);
+                    }
+                }
+            });
+
+            prevButton.addEventListener('click', () => {
+                if (currentStep > 1) {
+                    goToStep(currentStep - 1);
+                }
+            });
+
+            // Custom Select (Dropdown) Logic
+            const onsetButton = document.getElementById('onset-button');
+            const onsetLabel = document.getElementById('onset-label');
+            const onsetOptions = document.getElementById('onset-options');
+            const onsetInput = document.getElementById('onset');
+
+            onsetButton.addEventListener('click', () => {
+                onsetOptions.classList.toggle('hidden');
+                onsetOptions.classList.toggle('opacity-0');
+                onsetOptions.classList.toggle('scale-95');
+            });
+
+            onsetOptions.querySelectorAll('a').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    onsetLabel.textContent = option.textContent;
+                    onsetLabel.classList.remove('text-gray-500');
+                    onsetInput.value = option.dataset.value;
+                    onsetOptions.classList.add('hidden', 'opacity-0', 'scale-95');
+                    validateField('onset');
+                });
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!onsetButton.contains(e.target) && !onsetOptions.contains(e.target)) {
+                    onsetOptions.classList.add('hidden', 'opacity-0', 'scale-95');
+                }
+            });
+            
+            // Gender Tags Logic
+            const genderTags = document.querySelectorAll('.gender-tag');
+            const genderInput = document.getElementById('gender');
+
+            genderTags.forEach(tag => {
+                tag.addEventListener('click', () => {
+                    genderTags.forEach(t => t.classList.remove('selected'));
+                    tag.classList.add('selected');
+                    genderInput.value = tag.dataset.value;
+                    validateField('gender');
+                });
+                tag.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        tag.click();
+                    }
+                });
+            });
+
+            // Symptom Tags Logic
+            const symptomTags = document.querySelectorAll('.symptom-tag:not(.gender-tag)');
+            const symptomsInput = document.getElementById('symptoms-hidden-input');
+            let selectedSymptoms = [];
+
+            symptomTags.forEach(tag => {
+                tag.addEventListener('click', () => {
+                    tag.classList.toggle('selected');
+                    const value = tag.dataset.value;
+                    if (tag.classList.contains('selected')) {
+                        selectedSymptoms.push(value);
+                    } else {
+                        selectedSymptoms = selectedSymptoms.filter(s => s !== value);
+                    }
+                    symptomsInput.value = selectedSymptoms.join(',');
+                });
+            });
+
+            // File Upload variables needed for validation
+            const fileUpload = document.getElementById('file-upload');
+            const previewImage = document.getElementById('preview-image');
+
+            // Validation Logic
+            const getErrorField = (el) => {
+                if (el.name === 'onset') return document.querySelector('#onset-options + .validation-error-message');
+                if (el.type === 'file') return document.getElementById('file-drop-zone').nextElementSibling;
+                return el.closest('div').querySelector('.validation-error-message');
+            };
+
+            const validateField = (fieldId) => {
+                let isValid = true, errorMessage = '';
+                const el = document.getElementById(fieldId) || document.querySelector(`[name="${fieldId}"]`);
+                
+                if (fieldId === 'gender') {
+                    const targetEl = document.getElementById('gender-tag-group');
+                    const errorField = document.querySelector('#gender-tag-group + input + .validation-error-message');
+                    targetEl.classList.remove('input-error');
+                    errorField.style.visibility = 'hidden';
+                    if (!el.value) {
+                        isValid = false;
+                        errorMessage = 'لطفاً جنسیت را انتخاب کنید.';
+                        targetEl.classList.add('input-error');
+                        errorField.textContent = errorMessage;
+                        errorField.style.visibility = 'visible';
+                    }
+                    return isValid;
+                }
+
+                const errorField = getErrorField(el);
+                const targetEl = el.name === 'onset' ? onsetButton : (el.type === 'file' ? document.getElementById('file-drop-zone') : el);
+
+                if (el.id === 'file-upload') {
+                    // A file is considered selected if the input has a file OR if there's an image in the preview.
+                    // This handles the case where a user cancels a new file selection, which clears the input but shouldn't invalidate the form.
+                    if (el.files.length === 0 && !previewImage.src) {
+                        isValid = false;
+                        errorMessage = 'لطفاً یک تصویر بارگذاری کنید.';
+                    }
+                } else {
+                    if (!el.value) {
+                        isValid = false;
+                        errorMessage = 'این فیلد الزامی است.';
+                    } else if (el.min && parseInt(el.value) < parseInt(el.min)) {
+                        isValid = false;
+                        errorMessage = `مقدار باید حداقل ${el.min} باشد.`;
+                    } else if (el.max && parseInt(el.value) > parseInt(el.max)) {
+                        isValid = false;
+                        errorMessage = `مقدار باید حداکثر ${el.max} باشد.`;
+                    }
+                }
+
+                targetEl.classList.remove('input-error');
+                if(errorField) {
+                    errorField.style.visibility = 'hidden';
+                    errorField.textContent = '';
+                }
+
+                if (!isValid) {
+                    targetEl.classList.add('input-error');
+                    if(errorField) {
+                        errorField.textContent = errorMessage;
+                        errorField.style.visibility = 'visible';
+                    }
+                }
+                return isValid;
+            };
+
+            const validateCurrentStep = () => {
+                let isStepValid = true;
+                stepFields[currentStep].forEach(fieldId => {
+                    if (!validateField(fieldId)) {
+                        isStepValid = false;
+                    }
+                });
+                return isStepValid;
+            }
+            
+            Object.values(stepFields).flat().forEach(fieldId => {
+                const el = document.getElementById(fieldId);
+                if (el && el.name !== 'onset' && el.name !== 'gender') {
+                     const eventType = (el.tagName === 'SELECT' || el.type === 'file') ? 'change' : 'blur';
+                     el.addEventListener(eventType, () => validateField(fieldId));
+                }
+            });
+
+            // File Upload Logic
+            const fileDropZone = document.getElementById('file-drop-zone');
+            const uploadPrompt = document.getElementById('upload-prompt');
+            const filePreview = document.getElementById('file-preview');
+            const fileNameDisplay = document.getElementById('file-name');
+            const removeFileBtn = document.getElementById('remove-file');
+
+            function handleFiles(files) {
+                if (files.length > 0) {
+                    const file = files[0];
+                    fileNameDisplay.textContent = file.name;
+                    const reader = new FileReader();
+                    reader.onload = (e) => { previewImage.src = e.target.result; };
+                    reader.readAsDataURL(file);
+                    uploadPrompt.classList.add('hidden');
+                    filePreview.classList.remove('hidden');
+                    filePreview.classList.add('flex');
+                    validateField('file-upload');
+                }
+            }
+
+            fileUpload.addEventListener('change', function() { handleFiles(this.files); });
+
+            removeFileBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                fileUpload.value = '';
+                uploadPrompt.classList.remove('hidden');
+                filePreview.classList.add('hidden');
+                previewImage.src = '';
+                validateField('file-upload');
+            });
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                fileDropZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                fileDropZone.addEventListener(eventName, () => fileDropZone.classList.add('dragover'), false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                fileDropZone.addEventListener(eventName, () => fileDropZone.classList.remove('dragover'), false);
+            });
+            fileDropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    fileUpload.files = files;
+                    handleFiles(files);
+                }
+            }, false);
+
+            form.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && document.activeElement.tagName !== 'TEXTAREA') {
+                    if (document.activeElement.id !== 'age') {
+                        e.preventDefault();
+                        if (currentStep < steps.length) {
+                            nextButton.click();
+                        } else {
+                            submitButton.click();
+                        }
+                    }
+                }
+            });
+            
+            // Accordion Logic
+            const mockDiagnoses = [
+                { name: "اگزما (درماتیت آتوپیک)", description: "اگزما یک بیماری التهابی پوست است که باعث خشکی، خارش و قرمزی پوست می‌شود. این بیماری مزمن است و ممکن است با آسم یا تب یونجه همراه باشد. درمان شامل مرطوب‌کننده‌ها، کرم‌های استروئیدی و پرهیز از محرک‌ها است.", color: "blue" },
+                { name: "پسوریازیس", description: "پسوریازیس یک بیماری خودایمنی است که باعث ایجاد لکه‌های قرمز و پوسته‌پوسته روی پوست می‌شود. این لکه‌ها معمولاً روی آرنج، زانو، پوست سر و کمر ظاهر می‌شوند. درمان‌ها می‌توانند به کنترل علائم کمک کنند.", color: "purple" },
+                { name: "آکنه ولگاریس", description: "آکنه یک بیماری پوستی شایع است که در آن منافذ پوست با چربی و سلول‌های مرده مسدود می‌شوند. این وضعیت می‌تواند باعث ایجاد جوش‌های سرسفید، سرسیاه یا چرکی شود و بیشتر در نوجوانان دیده می‌شود.", color: "red" },
+                { name: "روزاسه", description: "روزاسه یک بیماری پوستی است که باعث قرمزی و دیده شدن رگ‌های خونی در صورت می‌شود. همچنین ممکن است برجستگی‌های کوچک و چرکی ایجاد کند. این بیماری بیشتر در زنان میانسال با پوست روشن شایع است.", color: "rose" },
+                { name: "درماتیت تماسی", description: "این نوع درماتیت در اثر تماس مستقیم با یک ماده محرک یا آلرژن ایجاد می‌شود و باعث بثورات قرمز و خارش‌دار می‌شود. درمان شامل شناسایی و اجتناب از ماده عامل و استفاده از کرم‌های ضد خارش است.", color: "green" }
+            ];
+
+            function displayResults(results) {
+                const accordionContainer = document.getElementById('analysis-results-accordion');
+                accordionContainer.innerHTML = ''; // Clear previous results
+                
+                const colorClasses = {
+                    blue: { bg: 'bg-blue-100', text: 'text-blue-800' },
+                    purple: { bg: 'bg-purple-100', text: 'text-purple-800' },
+                    red: { bg: 'bg-red-100', text: 'text-red-800' },
+                    rose: { bg: 'bg-rose-100', text: 'text-rose-800' },
+                    green: { bg: 'bg-green-100', text: 'text-green-800' }
+                };
+
+                results.forEach(result => {
+                    const item = document.createElement('div');
+                    const colors = colorClasses[result.color] || colorClasses.blue;
+                    item.className = 'accordion-item';
+                    item.innerHTML = `
+                        <div class="accordion-header flex justify-between items-center p-4 rounded-lg ${colors.bg} ${colors.text}">
+                            <h3 class="font-semibold">${result.name}</h3>
+                            <svg class="accordion-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                        <div class="accordion-content">
+                            <p>${result.description}</p>
+                        </div>
+                    `;
+                    accordionContainer.appendChild(item);
+                });
+
+                accordionContainer.querySelectorAll('.accordion-header').forEach(header => {
+                    header.addEventListener('click', () => {
+                        const item = header.parentElement;
+                        const content = header.nextElementSibling;
+                        
+                        const wasActive = item.classList.contains('active');
+
+                        accordionContainer.querySelectorAll('.accordion-item.active').forEach(activeItem => {
+                            activeItem.classList.remove('active');
+                            activeItem.querySelector('.accordion-content').style.maxHeight = null;
+                        });
+
+                        if (!wasActive) {
+                            item.classList.add('active');
+                            content.style.maxHeight = content.scrollHeight + 50 + "px";
+                        }
+                    });
+                });
+            }
+            
+            // Form Reset Logic
+            function resetForm() {
+                // Reset form fields
+                form.reset();
+                
+                // Reset custom UI components
+                document.querySelectorAll('.symptom-tag.selected').forEach(tag => tag.classList.remove('selected'));
+                onsetLabel.textContent = 'مدت زمان را انتخاب کنید...';
+                onsetLabel.classList.add('text-gray-500');
+                removeFileBtn.click(); // Simulate click to clear file preview
+                
+                // Reset hidden inputs
+                genderInput.value = '';
+                onsetInput.value = '';
+                symptomsInput.value = '';
+                selectedSymptoms = [];
+
+                // Reset validation messages
+                document.querySelectorAll('.validation-error-message').forEach(msg => {
+                    msg.style.visibility = 'hidden';
+                    msg.textContent = '';
+                });
+                document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+
+                // Hide results and show form steps
+                mainContainer.classList.remove('results-shown');
+                successMessage.classList.add('hidden');
+                resultsButtons.classList.add('hidden');
+                
+                progressContainer.classList.remove('hidden');
+                formStepsContainer.classList.remove('hidden');
+                navigationButtons.classList.remove('hidden');
+                
+                document.getElementById('header-subtitle').textContent = 'برای دریافت یک تحلیل اولیه، لطفاً فرم زیر را با دقت تکمیل نمایید.';
+
+                // Go back to step 1
+                goToStep(1);
+                
+                // Set focus to the age input field for a new entry
+                ageInput.focus();
+            }
+            
+            startAgainButton.addEventListener('click', resetForm);
+
+            // Form Submission
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (validateCurrentStep()) {
+                    const submitButtonText = document.getElementById('submit-button-text');
+                    const submitSpinner = document.getElementById('submit-spinner');
+                    submitButton.disabled = true;
+                    submitButtonText.classList.add('hidden');
+                    submitSpinner.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        // Re-enable submit button for next time
+                        submitButton.disabled = false;
+                        submitButtonText.classList.remove('hidden');
+                        submitSpinner.classList.add('hidden');
+
+                        mainContainer.classList.add('results-shown');
+                        document.getElementById('header-subtitle').textContent = 'نتایج تحلیل شما در زیر ارائه شده است.';
+                        formStepsContainer.classList.add('hidden');
+                        navigationButtons.classList.add('hidden');
+                        progressContainer.classList.add('hidden');
+                        successMessage.classList.remove('hidden');
+                        resultsButtons.classList.remove('hidden');
+                        
+                        displayResults(mockDiagnoses);
+
+                    }, 2000);
+                }
+            });
+
+            goToStep(1);
+        });
+    </script>
+    <script>
+        // PWA Setup: Manifest and Service Worker
+        // Since this is a single HTML file, we create the manifest and service worker
+        // dynamically using JavaScript Blobs.
+
+        // 1. Create and inject the Web App Manifest
+        const manifest = {
+            "name": "دستیار هوشمند پوست",
+            "short_name": "دستیار پوست",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#f8fafc",
+            "theme_color": "#4f46e5",
+            "description": "دستیار هوشمند برای تحلیل اولیه بیماری‌های پوستی",
+            "icons": [
+                {
+                    "src": "https://placehold.co/192x192/4F46E5/FFFFFF?text=S",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                    "purpose": "any maskable"
+                },
+                {
+                    "src": "https://placehold.co/512x512/4F46E5/FFFFFF?text=S",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "any maskable"
+                }
+            ]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = manifestURL;
+        document.head.appendChild(manifestLink);
+
+        // Add apple-touch-icon link for iOS
+        const appleIconLink = document.createElement('link');
+        appleIconLink.rel = 'apple-touch-icon';
+        appleIconLink.href = 'https://placehold.co/180x180/4F46E5/FFFFFF?text=S'; // Standard size for iOS home screen
+        document.head.appendChild(appleIconLink);
+
+
+        // 2. Create and register the Service Worker
+        const swCode = `
+            // This is a minimal service worker.
+            // Its only purpose is to exist and be registered, which helps
+            // satisfy the browser's criteria for a PWA and the 'Add to Home Screen' feature.
+            // It does NOT cache any files, so the app will not work offline.
+
+            self.addEventListener('install', event => {
+                // Skips the waiting phase and activates the new service worker immediately.
+                self.skipWaiting();
+            });
+
+            self.addEventListener('activate', event => {
+                // The service worker is active.
+            });
+
+            self.addEventListener('fetch', event => {
+                // This fetch event listener is required for some browsers to trigger the
+                // 'Add to Home Screen' prompt. It doesn't do anything with the request;
+                // it just lets the browser handle it as it normally would.
+                return;
+            });
+        `;
+        const swBlob = new Blob([swCode], { type: 'application/javascript' });
+        const swURL = URL.createObjectURL(swBlob);
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register(swURL)
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('ServiceWorker registration failed: ', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
