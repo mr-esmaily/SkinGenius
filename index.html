@@ -844,8 +844,8 @@
         
         const manifest = {
             "name": "SkinGenius",
-            "short_name": "SkinGenius Z",
-            "description": "Dermatology by AI pro.",
+            "short_name": "SkinGenius",
+            "description": "Dermatology by AI.",
             "start_url": ".",
             "display": "standalone",
             "background_color": "#ffffff",
@@ -873,7 +873,7 @@
 
         // 2. Define and register the service worker
         const swCode = `
-            const CACHE_NAME = 'skin-assistant-cache-v1.4'; // <-- Updated cache name
+            const CACHE_NAME = 'skin-assistant-cache-v1.5'; // <-- Updated cache name
             const urlsToCache = [
                 '/',
                 './' 
@@ -993,4 +993,5 @@
 
     </script>
 </body>
+
 </html>
