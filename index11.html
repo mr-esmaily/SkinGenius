@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SkinGenius</title>
+
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#ffffff"/>
+  <meta name="description" content="A smart assistant for preliminary analysis of skin conditions.">
+  <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/mr-esmaily/SkinGenius/405144491fadaa87abc66ee9d00e15c14cd047ec/IMG_20250817_063212_060.jpg">
+  <link rel="manifest" href="manifest.json">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root { --vh: 1vh; }
+    html, body { height: calc(var(--vh) * 100); overflow: hidden; -webkit-text-size-adjust: 100%; }
+    @supports (height: 100dvh) { html, body { height: 100dvh; } }
+    body { font-family: 'Vazirmatn', sans-serif; background-color: #f8fafc; }
+    .content-wrapper { overflow-y: auto; }
+    main { height: 100%; max-height: 100vh; }
+    @media (min-width: 640px) {
+      html, body { height: auto; overflow: auto; }
+      main { height: auto; max-height: none; }
+      main.results-shown .content-wrapper { overflow-y: auto; max-height: calc(100vh - 100px); }
+    }
+    @media (max-height: 720px) {
+      .content-wrapper { padding: 1rem !important; }
+      #progress-container { margin-bottom: 0.75rem !important; }
+      h1 { font-size: 1.15rem !important; }
+      legend { font-size: 1rem !important; margin-bottom: 0.75rem !important; }
+      .form-input, .custom-select-button { height: 2.6rem !important; }
+      .btn-primary, .btn-secondary { padding: 0.5rem 0.9rem !important; }
+    }
+    @media (max-height: 640px) {
+      #header-subtitle { display: none !important; }
+      .content-wrapper { padding: 0.75rem !important; }
+      #progress-container { margin-bottom: 0.5rem !important; }
+      h1 { font-size: 1.05rem !important; }
+      legend { font-size: 0.95rem !important; margin-bottom: 0.5rem !important; }
+      .form-input, .custom-select-button { height: 2.4rem !important; }
+      .btn-primary, .btn-secondary { padding: 0.45rem 0.85rem !important; }
+      .accordion-content p { font-size: 0.85rem !important; line-height: 1.6 !important; }
+      #additional-info { height: 5rem !important; font-size: 0.875rem !important; }
+    }
+    #main-container.auto-fit { transform-origin: top center; will-change: transform; }
+
+    .form-input, .custom-select-button, .form-textarea {
+      background-color: #ffffff; border-color: #9ca3af;
+      transition: border-color .2s, box-shadow .2s;
+      text-align: right;
+    }
+    .form-input:focus, .custom-select-button:focus, .form-textarea:focus, .symptom-tag:focus {
+      border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, .15); outline: none;
+    }
+    .file-drop-zone { background-color: #f9fafb; border: 2px dashed #d1d5db; transition: border-color .2s, background-color .2s; }
+    .file-drop-zone.dragover { border-color: #4f46e5; background-color: #f0f5ff; }
+    .btn-primary { background-color: #4f46e5; color: #fff; transition: background-color .2s, transform .1s; box-shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1); }
+    .btn-primary:hover { background-color: #4338ca; transform: translateY(-1px); }
+    .btn-primary:disabled { background-color: #a5b4fc; cursor: not-allowed; transform: none; }
+    .btn-secondary { background-color: #fff; color: #374151; border: 1px solid #d1d5db; transition: background-color .2s, color .2s; }
+    .btn-secondary:hover { background-color: #f9fafb; }
+    /* حالت دکمه وقتی درخواست به پزشک ارسال شده */
+.btn-pending { background-color:#f59e0b; color:#fff; }
+.btn-pending:hover { background-color:#d97706; }
+.btn-pending:disabled {
+  background-color: #6366f1;
+  cursor: not-allowed;
+  opacity: 0.6;
+  filter: grayscale(20%);
+}
+    .validation-error-message { color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; min-height: 1.25rem; }
+    .input-error { border-color: #ef4444 !important; }
+    .symptom-tag { cursor: pointer; border: 1px solid #d1d5db; background-color: #fff; transition: all .2s; }
+    .symptom-tag.selected { background-color: #4f46e5; color: #fff; border-color: #4f46e5; }
+    .form-step { display: none; }
+    .form-step.active { display: flex; flex-direction: column; height: 100%; animation: fadeIn .5s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+    .custom-select-options { transition: opacity .2s, transform .2s; }
+    #splash-screen { opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s; }
+    #splash-screen.visible { opacity: 1; visibility: visible; }
+    #splash-content { transform: scale(.95); opacity: 0; transition: transform .3s, opacity .3s; }
+    #splash-screen.visible #splash-content { transform: scale(1); opacity: 1; }
+    .accordion-header { cursor: pointer; transition: background-color .3s, border-radius .3s; }
+    .accordion-content { max-height: 0; overflow: hidden; transition: max-height .5s, padding .5s; padding: 0 1rem; background: #fff; border-bottom-left-radius: .5rem; border-bottom-right-radius: .5rem; }
+    .accordion-content p { font-size: .9rem; line-height: 1.7; text-align: justify; color: #4b5563; }
+    .accordion-header .accordion-icon { transition: transform .3s; }
+    .accordion-item.active .accordion-header { border-bottom-right-radius: 0; border-bottom-left-radius: 0; }
+    .accordion-item.active .accordion-header .accordion-icon { transform: rotate(180deg); }
+    .accordion-item.active .accordion-content { padding: 1.25rem 1rem; border: 1px solid #e5e7eb; border-top: none; }
+    @media (max-width: 639px) { #navigation-buttons { padding: .5rem; } #navigation-buttons button { padding-top: .85rem; padding-bottom: .85rem; } }
+
+    /* History cards */
+    .history-card {
+      transition: transform .2s ease, box-shadow .2s ease, opacity .25s ease, max-height .25s ease, margin .25s ease, padding .25s ease, border-width .25s ease;
+      overflow: hidden;
+      max-height: 1000px;
+    }
+    .history-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.06); }
+    .history-card.removing {
+      opacity: 0;
+      transform: translateY(10px);
+      max-height: 0;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      border-width: 0 !important;
+    }
+
+    /* Modal (dialog) base */
+    .modal-backdrop {
+      opacity: 0; visibility: hidden;
+      transition: opacity .2s ease, visibility .2s ease;
+    }
+    .modal-backdrop.show {
+      opacity: 1; visibility: visible;
+    }
+    .modal-panel {
+      transform: translateY(20px) scale(.98);
+      opacity: 0;
+      transition: transform .2s ease, opacity .2s ease;
+    }
+    .modal-panel.show {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body class="text-slate-800 flex flex-col items-center sm:justify-center p-0 sm:p-6">
+  <!-- Offline Indicator -->
+  <div id="offline-indicator" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-gray-900 bg-opacity-70 backdrop-blur-sm">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full m-4 text-center">
+      <svg class="mx-auto h-16 w-16 text-amber-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+      <h2 class="text-2xl font-bold text-gray-800 mb-3">شما آفلاین هستید</h2>
+      <p class="text-gray-600 leading-relaxed">اتصال اینترنت قطع است؛ پس از اتصال، برنامه عادی می‌شود.</p>
+    </div>
+  </div>
+
+  <!-- Splash / Disclaimer -->
+  <div id="splash-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-60 backdrop-blur-sm">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full m-4 text-right" id="splash-content">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">سلب مسئولیت مهم</h2>
+      <p class="text-gray-600 mb-6 leading-relaxed">این ابزار یک دستیار هوشمند است و نتایج آن بر اساس هوش مصنوعی تولید می‌شود. تحلیل ارائه شده <strong>جایگزین نظر پزشک متخصص نیست</strong>. لطفاً برای تشخیص قطعی و درمان، با پزشک مشورت کنید.</p>
+      <button id="accept-disclaimer" class="w-full btn-primary rounded-lg py-3 px-8 text-base font-semibold">متوجه شدم و ادامه می‌دهم</button>
+    </div>
+  </div>
+
+  <!-- UPDATE NOTIFICATION -->
+  <div id="update-notification" class="hidden fixed bottom-5 right-5 z-50">
+    <div class="bg-gray-800 text-white rounded-lg shadow-lg p-4 flex items-center justify-between space-x-4 space-x-reverse">
+      <span>نسخه جدیدی در دسترس است!</span>
+      <button id="reload-button" class="btn-primary py-2 px-4 text-sm rounded-md">به‌روزرسانی</button>
+    </div>
+  </div>
+
+  <!-- Main container -->
+  <main id="main-container" class="relative w-full max-w-3xl bg-white sm:shadow-lg sm:border sm:border-gray-200 overflow-hidden sm:rounded-2xl flex flex-col">
+    <div class="content-wrapper relative flex-grow flex flex-col p-5 sm:p-8 md:p-10">
+
+      <!-- Top-right menu -->
+      <div class="absolute top-4 right-4 z-40">
+        <div class="relative">
+          <button id="menu-button" type="button" aria-haspopup="true" aria-expanded="false"
+                  class="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" title="گزینه‌ها">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle>
+            </svg>
+          </button>
+          <div id="menu-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-1 text-sm">
+            <button id="menu-history" class="w-full text-right px-4 py-2 hover:bg-indigo-50 focus:bg-indigo-50">نمایش نتایج قبلی</button>
+            <div class="border-t border-gray-200 my-1"></div>
+            <button id="menu-install" class="w-full text-right px-4 py-2 hover:bg-indigo-50 focus:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>نصب این برنامه</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mb-6 sm:mb-8">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">دستیار هوشمند پوست</h1>
+        <p id="header-subtitle" class="mt-3 text-gray-500">با تکمیل سه مرحله ساده زیر، مشکل پوست خود را بهتر بشناسید.</p>
+      </div>
+
+      <div id="progress-container" class="mb-6 sm:mb-8">
+        <div class="relative pt-1">
+          <div class="flex mb-2 items-center justify-between">
+            <div>
+              <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-600 bg-indigo-100">
+                مرحله <span id="step-counter">1</span> از 3
+              </span>
+            </div>
+          </div>
+          <div class="overflow-hidden h-2 mb-4 text-xs flex rounded-full bg-indigo-100">
+            <div id="progress-bar" style="width: 33.33%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-500 rounded-full"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <form id="skin-analysis-form" novalidate class="flex-grow flex flex-col">
+        <div id="form-steps-container" class="flex-grow">
+          <!-- Step 1 -->
+          <div class="form-step active" data-step="1">
+            <fieldset class="flex-grow flex flex-col">
+              <legend class="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-1 mb-6">اطلاعات شخصی</legend>
+              <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:gap-x-6 items-start">
+                <div class="mb-6 md:mb-0 flex flex-col gap-1">
+                  <label for="age" class="block text-sm font-medium text-gray-600 mb-1">سن</label>
+                  <input type="number" name="age" id="age" required min="2" max="100" class="form-input block w-full rounded-lg shadow-sm sm:text-sm h-12 px-4 border" placeholder="مثال: ۳۴">
+                  <p class="validation-error-message" style="visibility: hidden;"></p>
+                </div>
+                <div class="hidden md:block h-12 border-l border-gray-200 self-center"></div>
+                <div flex flex-col gap-1>
+                  <label class="block text-sm font-medium text-gray-600 mb-1">جنسیت</label>
+                  <div id="gender-tag-group" class="flex items-center space-x-4 space-x-reverse h-12">
+                    <span class="symptom-tag gender-tag flex-1 justify-center items-center flex py-2 rounded-full text-center text-sm" data-value="female" tabindex="0">زن</span>
+                    <span class="symptom-tag gender-tag flex-1 justify-center items-center flex py-2 rounded-full text-center text-sm" data-value="male" tabindex="0">مرد</span>
+                  </div>
+                  <input type="hidden" name="gender" id="gender" required>
+                  <p class="validation-error-message" style="visibility: hidden;"></p>
+                </div>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="form-step" data-step="2">
+            <fieldset class="flex-grow flex flex-col">
+              <legend class="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-1 mb-6">جزئیات علائم</legend>
+              <div class="grid grid-cols-1">
+                <div class="relative">
+                  <label for="onset-button" class="block text-sm font-medium text-gray-600 mb-1">زمان شروع</label>
+                  <input type="hidden" name="onset" id="onset" required>
+                  <button type="button" id="onset-button" class="custom-select-button flex items-center justify-between w-full rounded-lg shadow-sm h-12 px-4 border">
+                    <span id="onset-label" class="text-gray-500">زمان شروع علائم را انتخاب کنید....</span>
+                    <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a 1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                  </button>
+                  <div id="onset-options" class="custom-select-options absolute z-10 mt-1 w-full bg-white shadow-lg rounded-lg border border-gray-200 hidden opacity-0 transform scale-95">
+                    <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 border-b border-gray-100" data-value="کمتر از یک روز">کمتر از یک روز</a>
+                    <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 border-b border-gray-100" data-value="یک روز تا سه هفته">یک روز تا سه هفته</a>
+                    <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 border-b border-gray-100" data-value="سه هفته تا دو ماه">سه هفته تا دو ماه</a>
+                    <a href="#" class="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 border-b border-gray-100" data-value="بیشتر از دو ماه">بیشتر از دو ماه</a>
+                  </div>
+                  <p class="validation-error-message" style="visibility: hidden;"></p>
+                </div>
+
+                <div class="mt-4 sm:mt-6">
+                  <label class="block text-sm font-medium text-gray-600 mb-1">علائم همراه (اختیاری)</label>
+                  <div class="flex items-center space-x-4 space-x-reverse h-12">
+                    <span class="symptom-tag py-2 rounded-full flex-1 text-center text-sm" data-value="itching">خارش</span>
+                    <span class="symptom-tag py-2 rounded-full flex-1 text-center text-sm" data-value="pain">درد</span>
+                    <span class="symptom-tag py-2 rounded-full flex-1 text-center text-sm" data-value="fever">تب</span>
+                    <input type="hidden" name="symptoms" id="symptoms-hidden-input">
+                  </div>
+                  <p class="validation-error-message" style="visibility: hidden;"></p>
+                </div>
+
+                <div class="mt-4 sm:mt-6">
+                  <label for="additional-info" class="block text-sm font-medium text-gray-600 mb-1">توضیحات تکمیلی (اختیاری)</label>
+                  <textarea id="additional-info" name="additional-info" rows="3" maxlength="250" class="form-textarea block w-full rounded-lg shadow-sm sm:text-sm border p-3" placeholder="اگر بیماری همراه دارید یا درمانی انجام دادید اینجا بنویسید..."></textarea>
+                </div>
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="form-step" data-step="3">
+            <fieldset class="flex-grow flex flex-col">
+              <legend class="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-1 mb-6">بارگذاری تصویر</legend>
+              <div class="flex-grow flex flex-col justify-center">
+                <label class="block text-sm font-medium text-gray-600 mb-2">یک تصویر واضح از محل مشکل پوستی بارگذاری کنید</label>
+                <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="image/png, image/jpeg, image/jpg" required>
+                <label for="file-upload" id="file-drop-zone" class="relative file-drop-zone flex flex-col items-center justify-center rounded-xl p-4 cursor-pointer w-full flex-grow min-h-[200px]">
+                  <div id="upload-prompt" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                    <svg class="mx-auto h-10 w-10 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v 8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    <p class="font-semibold text-gray-700 text-sm">برای بارگذاری، اینجا کلیک کنید</p>
+                    <p class="text-xs text-gray-500 mt-1">یا فایل را بکشید و رها کنید</p>
+                    <p class="text-xs text-gray-500 mt-3">PNG, JPG, JPEG (حداکثر ۵ مگابایت)</p>
+                  </div>
+                  <div id="file-preview" class="absolute inset-0 p-2 hidden flex-col">
+                    <div class="flex-1 relative min-h-0">
+                      <img id="preview-image" src="" class="absolute inset-0 m-auto max-h-full max-w-full object-contain rounded-lg" alt="پیش‌نمایش تصویر"/>
+                    </div>
+                    <div class="flex-shrink-0 w-full flex items-center justify-between mt-1">
+                      <p id="file-name" class="text-xs font-medium text-gray-800 truncate"></p>
+                      <button type="button" id="remove-file" class="p-1 rounded-full hover:bg-red-100 text-red-600 transition-colors">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 3h6a1 1 0 0 1 .98.804L16.89 5H20a1 1 0 1 1 0 2h-1v12a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7H4a1 1 0 1 1 0-2h3.11l.91-1.196A1 1 0 0 1 9 3Zm2 6a1 1 0 0 0-2 0v9a1 1 0 1 0 2 0V9Zm4 0a1 1 0 1 0-2 0v9a1 1 0 1 0 2 0V9Z"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </label>
+                <p class="validation-error-message" style="visibility: hidden;"></p>
+                <p class="text-xs text-gray-500 mt-2 text-center">نکته: برای نتیجه بهتر، عکس را در نور کافی و از فاصله ۱۰ تا ۲۰ سانتی‌متر بگیرید.</p>
+              </div>
+            </fieldset>
+          </div>
+        </div>
+
+        <!-- Success & Results -->
+        <div id="success-message" class="hidden text-center flex-grow flex flex-col">
+          <!-- خلاصه کاربر -->
+          <div id="results-summary" class="mb-4 sm:mb-6"></div>
+
+          <!-- آکاردئون نتایج -->
+          <div id="analysis-results-accordion" class="space-y-3 text-right flex-grow"></div>
+
+          <div id="results-buttons" class="hidden mt-8 flex flex-col sm:flex-row sm:justify-between gap-4">
+            <button type="button" id="revise-button" class="btn-primary rounded-lg py-2.5 px-8 text-sm font-semibold w-full sm:w-[48%]">بررسی توسط پزشک</button>
+            <button type="button" id="start-again-button" class="btn-secondary rounded-lg py-2.5 px-8 text-sm font-semibold w-full sm:w-[48%]">شروع مجدد</button>
+          </div>
+        </div>
+
+        <!-- History view -->
+        <div id="history-view" class="hidden">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-slate-800">نتایج قبلی</h3>
+            <div class="flex items-center gap-2">
+              <button type="button" id="history-clear-all" class="rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-1.5 text-sm font-semibold hover:bg-red-100">حذف همه</button>
+              <button type="button" id="history-back-to-form" class="btn-secondary rounded-lg py-2 px-4 text-sm font-semibold">بازگشت</button>
+            </div>
+          </div>
+          <div id="history-list" class="space-y-3"></div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Navigation -->
+    <div id="navigation-buttons" class="flex-shrink-0 bg-gray-50 px-6 sm:px-10 py-4 flex justify-between items-center border-t border-gray-200">
+      <div>
+        <button type="button" id="next-button" class="btn-primary rounded-lg py-2.5 px-8 text-sm font-semibold">بعدی</button>
+        <button type="submit" form="skin-analysis-form" id="submit-button" class="btn-primary w-auto inline-flex justify-center items-center rounded-lg py-2.5 px-4 sm:px-8 text-sm font-semibold hidden">
+          <span id="submit-button-text">ارسال و اجرای تحلیل</span>
+          <svg id="submit-spinner" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="display:none;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0a12 12 0 00-12 12h4zm2 5.291A7.962 7.962 0 014 12H0a12 12 0 0012 12v-4a8 8 0 01-6-2.709z"></path></svg>
+        </button>
+      </div>
+      <button type="button" id="prev-button" class="btn-secondary rounded-lg py-2.5 px-8 text-sm font-semibold">قبلی</button>
+    </div>
+  </main>
+
+  <!-- ====== Modals (Dialogs) ====== -->
+  <!-- Delete Single Modal -->
+  <div id="modal-delete-single" class="modal-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">
+    <div class="modal-panel bg-white w-full max-w-md mx-4 rounded-2xl shadow-2xl p-5">
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 mt-1">
+          <div class="w-10 h-10 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
+            <svg class="w-6 h-6 text-red-600" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6a1 1 0 0 1 .98.804L16.89 5H20a1 1 0 1 1 0 2h-1v12a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7H4a1 1 0 1 1 0-2h3.11l.91-1.196A1 1 0 0 1 9 3Zm2 6a1 1 0 0 0-2 0v9a1 1 0 1 0 2 0V9Zm4 0a1 1 0 1 0-2 0v9a1 1 0 1 0 2 0V9Z"/></svg>
+          </div>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-lg font-bold text-slate-800 mb-1">حذف این نتیجه؟</h3>
+          <p class="text-slate-600 text-sm leading-6">این عملیات قابل بازگشت نیست. آیا مطمئن هستید که می‌خواهید این نتیجه را حذف کنید؟</p>
+        </div>
+      </div>
+      <div class="mt-5 flex items-center justify-between gap-3">
+        <button type="button" data-modal-action="cancel" class="btn-secondary rounded-lg py-2 px-4 text-sm font-semibold w-full">انصراف</button>
+        <button type="button" data-modal-action="confirm" class="btn-primary rounded-lg py-2 px-4 text-sm font-semibold w-full bg-red-600 hover:bg-red-700">حذف</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear All Modal -->
+  <div id="modal-clear-all" class="modal-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">
+    <div class="modal-panel bg-white w-full max-w-md mx-4 rounded-2xl shadow-2xl p-5">
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 mt-1">
+<div class="w-10 h-10 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center">
+  <svg class="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a1 1 0 0 1 .894.553l9 18A1 1 0 0 1 21 22H3a1 1 0 0 1-.894-1.447l9-18A1 1 0 0 1 12 2Zm0 6a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0 2.5A1.25 1.25 0 0 1 12 17Z"/>
+  </svg>
+</div>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-lg font-bold text-slate-800 mb-1">حذف همه نتایج ذخیره‌شده؟</h3>
+          <p class="text-slate-600 text-sm leading-6">با تأیید، تمام تاریخچه از مرورگر شما پاک می‌شود و قابل بازیابی نخواهد بود.</p>
+        </div>
+      </div>
+      <div class="mt-5 flex items-center justify-between gap-3">
+        <button type="button" data-modal-action="cancel" class="btn-secondary rounded-lg py-2 px-4 text-sm font-semibold w-full">انصراف</button>
+        <button type="button" data-modal-action="confirm" class="btn-primary rounded-lg py-2 px-4 text-sm font-semibold w-full bg-red-600 hover:bg-red-700">حذف همه</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ------- Viewport fix ------- */
+    function setVh() { document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px'); }
+    setVh(); window.addEventListener('resize', setVh); window.addEventListener('orientationchange', setVh);
+
+    /* ------- PWA Service Worker ------- */
+    const manifest = {
+      "name": "SkinGenius","short_name": "SkinGenius","start_url": ".","display": "standalone","background_color": "#ffffff","theme_color": "#ffffff",
+      "description": "A smart assistant for preliminary analysis of skin conditions.",
+      "icons": [
+        { "src": "https://raw.githubusercontent.com/mr-esmaily/SkinGenius/405144491fadaa87abc66ee9d00e15c14cd047ec/IMG_20250817_063212_060.jpg", "sizes": "192x192", "type": "image/jpeg" },
+        { "src": "https://raw.githubusercontent.com/mr-esmaily/SkinGenius/405144491fadaa87abc66ee9d00e15c14cd047ec/IMG_20250817_063212_060.jpg", "sizes": "512x512", "type": "image/jpeg" }
+      ]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+    const manifestURL = URL.createObjectURL(manifestBlob);
+    document.querySelector('link[rel="manifest"]').setAttribute('href', manifestURL);
+
+    const swCode = `
+      const CACHE_NAME = 'skingenius-cache-v2';
+      const urlsToCache = ['/', 'https://cdn.tailwindcss.com',
+        'https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap',
+        'https://fonts.gstatic.com/s/vazirmatn/v11/Dxx78-e6dG52Wk2bPpz2hLfg_W5o-32b.woff2',
+        'https://raw.githubusercontent.com/mr-esmaily/SkinGenius/405144491fadaa87abc66ee9d00e15c14cd047ec/IMG_20250817_063212_060.jpg'
+      ];
+      self.addEventListener('message', e => { if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting(); });
+      self.addEventListener('install', event => {
+        event.waitUntil(caches.open(CACHE_NAME).then(cache => {
+          const reqs = urlsToCache.map(url => url.includes('githubusercontent') ? new Request(url, { mode:'no-cors'}) : url);
+          return cache.addAll(reqs);
+        }));
+      });
+      self.addEventListener('activate', event => {
+        const keep = [CACHE_NAME];
+        event.waitUntil(caches.keys().then(names => Promise.all(names.map(n => keep.includes(n)?null:caches.delete(n)))));
+      });
+      self.addEventListener('fetch', event => { event.respondWith(caches.match(event.request).then(r => r || fetch(event.request))); });
+    `;
+    const swBlob = new Blob([swCode], { type: 'application/javascript' });
+    const swURL = URL.createObjectURL(swBlob);
+
+    if ('serviceWorker' in navigator) {
+      const updateButton = document.getElementById('reload-button');
+      const updateNotification = document.getElementById('update-notification');
+      const registerServiceWorker = async () => {
+        try {
+          const registration = await navigator.serviceWorker.register(swURL);
+          if (registration.waiting) { showUpdateNotification(registration.waiting); return; }
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) showUpdateNotification(newWorker);
+            });
+          });
+        } catch (err) { console.log('SW registration failed: ', err); }
+      };
+      function showUpdateNotification(worker) {
+        updateNotification.classList.remove('hidden');
+        updateButton.addEventListener('click', () => { worker.postMessage({ type: 'SKIP_WAITING' }); });
+      }
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (!refreshing) { window.location.reload(); refreshing = true; } });
+      window.addEventListener('load', () => { registerServiceWorker(); });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      function applyAutoFit() {
+        const main = document.getElementById('main-container');
+        main.classList.remove('auto-fit'); main.style.transform = ''; main.style.marginTop = '';
+        const needH = main.scrollHeight > window.innerHeight;
+        const needW = main.scrollWidth  > window.innerWidth;
+        if (!(needH || needW)) return;
+        const scale = Math.min(window.innerWidth / main.scrollWidth, window.innerHeight / main.scrollHeight, 1);
+        if (scale < 1) {
+          main.classList.add('auto-fit');
+          main.style.transform = `scale(${scale})`;
+          const rect = main.getBoundingClientRect();
+          const topGap = (window.innerHeight - rect.height) / 2;
+          if (topGap > 8) main.style.marginTop = `${topGap}px`;
+        }
+      }
+      if (document.fonts && document.fonts.ready) { document.fonts.ready.then(() => setTimeout(applyAutoFit, 0)); }
+      window.addEventListener('resize', () => { setVh(); applyAutoFit(); });
+      window.addEventListener('orientationchange', () => { setVh(); applyAutoFit(); });
+
+      const REQUIRED_MSG = { age: 'لطفاً سن را وارد کنید.', onset: 'لطفاً مدت زمان شروع علائم را انتخاب کنید.', 'file-upload': 'لطفاً یک تصویر بارگذاری کنید.', default: 'این فیلد الزامی است.' };
+      const RANGE_MSG_AGE = { min: (v) => `سن نباید کمتر از ${v} باشد.`, max: (v) => `سن نباید بیشتر از ${v} باشد.` };
+
+      // Online indicator
+      const offlineIndicator = document.getElementById('offline-indicator');
+      function updateOnlineStatus() { navigator.onLine ? offlineIndicator.classList.add('hidden') : offlineIndicator.classList.remove('hidden'); setTimeout(applyAutoFit, 0); }
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus();
+
+      // Splash
+      const splashScreen = document.getElementById('splash-screen');
+      const acceptDisclaimerBtn = document.getElementById('accept-disclaimer');
+      const ageInput = document.getElementById('age');
+      setTimeout(() => { splashScreen.classList.add('visible'); setTimeout(applyAutoFit, 0); }, 100);
+      acceptDisclaimerBtn.addEventListener('click', () => {
+        splashScreen.classList.remove('visible');
+        setTimeout(() => { splashScreen.style.display = 'none'; ageInput.focus(); setTimeout(applyAutoFit, 0); }, 300);
+      });
+
+      // Form logic
+      const mainContainer = document.getElementById('main-container');
+      const form = document.getElementById('skin-analysis-form');
+      const steps = Array.from(document.querySelectorAll('.form-step'));
+      const prevButton = document.getElementById('prev-button');
+      const nextButton = document.getElementById('next-button');
+      const submitButton = document.getElementById('submit-button');
+      const progressBar = document.getElementById('progress-bar');
+      const stepCounter = document.getElementById('step-counter');
+      const navigationButtons = document.getElementById('navigation-buttons');
+      const resultsButtons = document.getElementById('results-buttons');
+      const startAgainButton = document.getElementById('start-again-button');
+      const successMessage = document.getElementById('success-message');
+      const formStepsContainer = document.getElementById('form-steps-container');
+      const progressContainer = document.getElementById('progress-container');
+
+      const historyView = document.getElementById('history-view');
+      const historyList = document.getElementById('history-list');
+      const historyBackToForm = document.getElementById('history-back-to-form');
+      const historyClearAll = document.getElementById('history-clear-all');
+      let currentImageThumb = ''; // فقط تامبنیل سبک برای ذخیره در تاریخچه
+
+      /* ---- اضافه: وضعیت بازبینی پزشک ---- */
+      const REVIEW_NONE = 'none';
+      const REVIEW_PENDING = 'pending';
+      const REVIEW_DONE = 'done';
+      let currentHistoryId = null;
+
+      let currentStep = 1;
+      const stepFields = { 1: ['age', 'gender'], 2: ['onset'], 3: ['file-upload'] };
+
+      ageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const firstGenderTag = document.querySelector('.gender-tag'); if (firstGenderTag) firstGenderTag.focus(); } });
+
+      const updateButtons = () => {
+        prevButton.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        nextButton.classList.toggle('hidden', currentStep === steps.length);
+        submitButton.classList.toggle('hidden', currentStep !== steps.length);
+        setTimeout(applyAutoFit, 0);
+      };
+
+      const goToStep = (stepNumber) => {
+        steps.forEach(step => step.classList.toggle('active', parseInt(step.dataset.step) === stepNumber));
+        currentStep = stepNumber;
+        progressBar.style.width = `${(currentStep / steps.length) * 100}%`;
+        stepCounter.textContent = currentStep;
+        updateButtons();
+        setTimeout(applyAutoFit, 0);
+      };
+
+      nextButton.addEventListener('click', () => { if (validateCurrentStep()) { if (currentStep < steps.length) goToStep(currentStep + 1); } });
+      prevButton.addEventListener('click', () => { if (currentStep > 1) goToStep(currentStep - 1); });
+
+      // Custom Select
+      const onsetButton = document.getElementById('onset-button');
+      const onsetLabel = document.getElementById('onset-label');
+      const onsetOptions = document.getElementById('onset-options');
+      const onsetInput = document.getElementById('onset');
+
+      onsetButton.addEventListener('click', () => { onsetOptions.classList.toggle('hidden'); onsetOptions.classList.toggle('opacity-0'); onsetOptions.classList.toggle('scale-95'); setTimeout(applyAutoFit, 0); });
+      onsetOptions.querySelectorAll('a').forEach(option => {
+        option.addEventListener('click', (e) => {
+          e.preventDefault();
+          onsetLabel.textContent = option.textContent; onsetLabel.classList.remove('text-gray-500');
+          onsetInput.value = option.dataset.value;
+          onsetOptions.classList.add('hidden', 'opacity-0', 'scale-95');
+          validateField('onset'); setTimeout(applyAutoFit, 0);
+        });
+      });
+      document.addEventListener('click', (e) => { if (!onsetButton.contains(e.target) && !onsetOptions.contains(e.target)) onsetOptions.classList.add('hidden', 'opacity-0', 'scale-95'); });
+
+      // Gender
+      const genderTags = document.querySelectorAll('.gender-tag');
+      const genderInput = document.getElementById('gender');
+      genderTags.forEach(tag => {
+        tag.addEventListener('click', () => { genderTags.forEach(t => t.classList.remove('selected')); tag.classList.add('selected'); genderInput.value = tag.dataset.value; validateField('gender'); setTimeout(applyAutoFit, 0); });
+        tag.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tag.click(); } });
+      });
+
+      // Symptoms
+      const symptomTags = document.querySelectorAll('.symptom-tag:not(.gender-tag)');
+      const symptomsInput = document.getElementById('symptoms-hidden-input');
+      let selectedSymptoms = [];
+      symptomTags.forEach(tag => {
+        tag.addEventListener('click', () => {
+          tag.classList.toggle('selected');
+          const value = tag.dataset.value;
+          if (tag.classList.contains('selected')) selectedSymptoms.push(value); else selectedSymptoms = selectedSymptoms.filter(s => s !== value);
+          selectedSymptoms = [...new Set(selectedSymptoms)];
+          symptomsInput.value = selectedSymptoms.join(',');
+          setTimeout(applyAutoFit, 0);
+        });
+      });
+
+      // File upload
+      const fileUpload = document.getElementById('file-upload');
+      const previewImage = document.getElementById('preview-image');
+
+      const getErrorField = (el) => {
+        if (el.name === 'onset') return document.querySelector('#onset-options + .validation-error-message');
+        if (el.type === 'file') return document.getElementById('file-drop-zone').nextElementSibling;
+        return el.closest('div').querySelector('.validation-error-message');
+      };
+
+      const validateField = (fieldId) => {
+        let isValid = true, errorMessage = '';
+        const el = document.getElementById(fieldId) || document.querySelector(`[name="${fieldId}"]`);
+        if (fieldId === 'gender') {
+          const targetEl = document.getElementById('gender-tag-group');
+          const errorField = document.querySelector('#gender-tag-group + input + .validation-error-message');
+          targetEl.classList.remove('input-error'); errorField.style.visibility = 'hidden';
+          if (!el.value) { isValid = false; errorMessage = 'لطفاً جنسیت را انتخاب کنید.'; targetEl.classList.add('input-error'); errorField.textContent = errorMessage; errorField.style.visibility = 'visible'; }
+          return isValid;
+        }
+        const errorField = getErrorField(el);
+        const targetEl = el.name === 'onset' ? onsetButton : (el.type === 'file' ? document.getElementById('file-drop-zone') : el);
+        if (el.id === 'file-upload') {
+          if (el.files.length === 0 && !previewImage.src.startsWith('data:image')) { isValid = false; errorMessage = REQUIRED_MSG['file-upload']; }
+        } else {
+          if (!el.value) { isValid = false; errorMessage = REQUIRED_MSG[fieldId] || REQUIRED_MSG.default; }
+          else if (el.id === 'age') {
+            if (el.min && parseInt(el.value) < parseInt(el.min)) { isValid = false; errorMessage = RANGE_MSG_AGE.min(el.min); }
+            else if (el.max && parseInt(el.value) > parseInt(el.max)) { isValid = false; errorMessage = RANGE_MSG_AGE.max(el.max); }
+          }
+        }
+        targetEl.classList.remove('input-error'); if(errorField){ errorField.style.visibility = 'hidden'; errorField.textContent = ''; }
+        if (!isValid) { targetEl.classList.add('input-error'); if(errorField){ errorField.textContent = errorMessage; errorField.style.visibility = 'visible'; } }
+        return isValid;
+      };
+
+      const validateCurrentStep = () => { let v = true; stepFields[currentStep].forEach(f => { if (!validateField(f)) v = false; }); return v; };
+
+      Object.values(stepFields).flat().forEach(fieldId => {
+        const el = document.getElementById(fieldId);
+        if (el && el.name !== 'onset' && el.name !== 'gender') {
+          const eventType = (el.tagName === 'SELECT' || el.type === 'file') ? 'change' : 'blur';
+          el.addEventListener(eventType, () => { validateField(fieldId); setTimeout(applyAutoFit, 0); });
+        }
+      });
+
+      const fileDropZone = document.getElementById('file-drop-zone');
+      const uploadPrompt = document.getElementById('upload-prompt');
+      const filePreview = document.getElementById('file-preview');
+      const fileNameDisplay = document.getElementById('file-name');
+      const removeFileBtn = document.getElementById('remove-file');
+
+      async function createThumbnailFromFile(file, maxSide = 160, quality = 0.7) {
+        // تلاش با createImageBitmap (EXIF را هم اصلاح می‌کند)
+        try {
+          const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+          const W = bmp.width, H = bmp.height;
+          const scale = Math.min(1, maxSide / Math.max(W, H));
+          const w = Math.max(1, Math.round(W * scale));
+          const h = Math.max(1, Math.round(H * scale));
+          const c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+          const webpOK = c.toDataURL('image/webp', 0.01).startsWith('data:image/webp');
+          return c.toDataURL(webpOK ? 'image/webp' : 'image/jpeg', quality);
+        } catch (e) {
+          // fallback ساده
+          return new Promise((resolve) => {
+            const r = new FileReader();
+            r.onload = () => {
+              const img = new Image();
+              img.onload = () => {
+                const W = img.naturalWidth, H = img.naturalHeight;
+                const scale = Math.min(1, maxSide / Math.max(W, H));
+                const w = Math.max(1, Math.round(W * scale));
+                const h = Math.max(1, Math.round(H * scale));
+                const c = document.createElement('canvas'); c.width = w; c.height = h;
+                c.getContext('2d').drawImage(img, 0, 0, w, h);
+                const webpOK = c.toDataURL('image/webp', 0.01).startsWith('data:image/webp');
+                resolve(c.toDataURL(webpOK ? 'image/webp' : 'image/jpeg', quality));
+              };
+              img.onerror = () => resolve('');
+              img.src = r.result;
+            };
+            r.onerror = () => resolve('');
+            r.readAsDataURL(file);
+          });
+        }
+      }
+
+      function handleFiles(files) {
+        if (files.length > 0) {
+          const file = files[0];
+          fileNameDisplay.textContent = file.name;
+          const reader = new FileReader();
+          reader.onload = (e) => { previewImage.src = e.target.result; };
+          reader.readAsDataURL(file);
+          createThumbnailFromFile(file, 160, 0.7).then(t => { currentImageThumb = t || ''; }).catch(() => { currentImageThumb = ''; });
+          uploadPrompt.classList.add('hidden');
+          filePreview.classList.remove('hidden');
+          filePreview.classList.add('flex');
+          validateField('file-upload');
+          setTimeout(applyAutoFit, 0);
+        }
+      }
+      fileUpload.addEventListener('change', function() { handleFiles(this.files); });
+      removeFileBtn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        fileUpload.value = ''; uploadPrompt.classList.remove('hidden'); filePreview.classList.add('hidden'); previewImage.src = '';
+        validateField('file-upload'); setTimeout(applyAutoFit, 0);
+        currentImageThumb = '';
+      });
+      ['dragenter','dragover','dragleave','drop'].forEach(ev => { fileDropZone.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); }, false); });
+      ['dragenter','dragover'].forEach(ev => { fileDropZone.addEventListener(ev, () => fileDropZone.classList.add('dragover'), false); });
+      ['dragleave','drop'].forEach(ev => { fileDropZone.addEventListener(ev, () => fileDropZone.classList.remove('dragover'), false); });
+      fileDropZone.addEventListener('drop', (e) => { const files = e.dataTransfer.files; if (files.length > 0) { fileUpload.files = files; handleFiles(files); } }, false);
+
+      form.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && document.activeElement.tagName !== 'TEXTAREA') {
+          if (document.activeElement.id !== 'age') { e.preventDefault(); if (currentStep < steps.length) nextButton.click(); else submitButton.click(); }
+        }
+      });
+
+      /* --------- Mock results with sections --------- */
+      const mockDiagnoses = [
+        { name: 'اگزما (درماتیت آتوپیک)', color: 'blue', sections: [
+          { title: 'توضیح بیماری', text: 'اگزما التهاب مزمن پوست است؛ با خشکی، خارش و قرمزی تظاهر می‌کند.' },
+          { title: 'مسری بودن', text: 'مسری نیست.' },
+          { title: 'درمان', text: 'مرطوب‌کنندهٔ منظم، پرهیز از محرک‌ها؛ در شعله‌وری از کرم‌های استروئیدی/مهارکننده کالسینورین زیرنظر پزشک.' },
+          { title: 'چه زمانی به پزشک مراجعه کنیم؟', text: 'در صورت ترک‌های دردناک، عفونت ثانویه یا عدم پاسخ به درمان خانگی.' }
+        ]},
+        { name: 'پسوریازیس', color: 'purple', sections: [
+          { title: 'توضیح بیماری', text: 'بیماری خودایمنی-التهابی با پلاک‌های قرمز و پوسته‌پوسته.' },
+          { title: 'مسری بودن', text: 'مسری نیست.' },
+          { title: 'درمان', text: 'استروئید موضعی، آنالوگ ویتامین D، فوتوتراپی؛ موارد متوسط/شدید: درمان‌های سیستمیک/بیولوژیک.' },
+          { title: 'چه زمانی به پزشک مراجعه کنیم؟', text: 'درگیری ناخن/مفصل، گستردگی ضایعات، یا افت کیفیت زندگی.' }
+        ]},
+        { name: 'آکنه ولگاریس', color: 'red', sections: [
+          { title: 'توضیح بیماری', text: 'التهاب واحد پیلوسباسه؛ کومدون، پاپول، پوسچول.' },
+          { title: 'مسری بودن', text: 'مسری نیست.' },
+          { title: 'درمان', text: 'بنزوئیل‌پروکسید، رتینوئید موضعی، آنتی‌بیوتیک‌ها؛ موارد شدید: ایزوترتینوئین.' },
+          { title: 'چه زمانی به پزشک مراجعه کنیم؟', text: 'اسکار، ندولوکیستیک، یا عدم پاسخ به OTC.' }
+        ]},
+        { name: 'روزاسه', color: 'rose', sections: [
+          { title: 'توضیح بیماری', text: 'قرمزی پایدار صورت، تلانژکتازی؛ گاهی پاپول/پوسچول.' },
+          { title: 'مسری بودن', text: 'مسری نیست.' },
+          { title: 'درمان', text: 'اجتناب از محرک‌ها؛ درمان‌های موضعی (مترونیدازول/ایورمکتین)؛ لیزر عروقی.' },
+          { title: 'چه زمانی به پزشک مراجعه کنیم؟', text: 'درگیری چشمی یا سوزش قابل‌توجه.' }
+        ]},
+        { name: 'درماتیت تماسی', color: 'green', sections: [
+          { title: 'توضیح بیماری', text: 'التهاب ناشی از تماس با محرک/آلرژن؛ اریتم و خارش.' },
+          { title: 'مسری بودن', text: 'مسری نیست.' },
+          { title: 'درمان', text: 'شناسایی و اجتناب از عامل، کورتون موضعی کوتاه‌مدت، مرطوب‌کننده‌ها.' },
+          { title: 'چه زمانی به پزشک مراجعه کنیم؟', text: 'ضایعات وسیع، تورم شدید یا شک به آلرژی حرفه‌ای.' }
+        ]}
+      ];
+
+      function displayResults(results) {
+        const accordionContainer = document.getElementById('analysis-results-accordion');
+        accordionContainer.innerHTML = '';
+        const colorClasses = {
+          blue: { bg: 'bg-blue-100', text: 'text-blue-800' },
+          purple: { bg: 'bg-purple-100', text: 'text-purple-800' },
+          red: { bg: 'bg-red-100', text: 'text-red-800' },
+          rose: { bg: 'bg-rose-100', text: 'text-rose-800' },
+          green: { bg: 'bg-green-100', text: 'text-green-800' }
+        };
+        const renderSections = (r) => (r.sections||[]).map(sec => `
+          <div class="mb-4"><h4 class="font-semibold text-slate-800 mb-1">${sec.title}</h4>
+          <p class="text-slate-600 leading-7">${sec.text}</p></div>`).join('');
+        results.forEach(result => {
+          const item = document.createElement('div');
+          const colors = colorClasses[result.color] || colorClasses.blue;
+          item.className = 'accordion-item';
+          item.innerHTML = `
+            <div class="accordion-header flex justify-between items-center p-4 rounded-lg ${colors.bg} ${colors.text}">
+              <h3 class="font-semibold">${result.name}</h3>
+              <svg class="accordion-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+            <div class="accordion-content">${renderSections(result)}</div>`;
+          accordionContainer.appendChild(item);
+        });
+        accordionContainer.querySelectorAll('.accordion-header').forEach(header => {
+          header.addEventListener('click', () => {
+            const item = header.parentElement;
+            const content = header.nextElementSibling;
+            const wasActive = item.classList.contains('active');
+            accordionContainer.querySelectorAll('.accordion-item.active').forEach(ai => { ai.classList.remove('active'); ai.querySelector('.accordion-content').style.maxHeight = null; });
+            if (!wasActive) { item.classList.add('active'); content.style.maxHeight = content.scrollHeight + 50 + "px"; setTimeout(applyAutoFit, 0); }
+            else { setTimeout(applyAutoFit, 0); }
+          });
+        });
+        setTimeout(applyAutoFit, 0);
+      }
+
+function renderResultsSummary(summary) {
+  const wrap = document.getElementById('results-summary');
+  if (!wrap) return;
+
+  const esc = (s) => String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+
+  const hasImg = summary && summary.imgSrc && summary.imgSrc.startsWith('data:image');
+
+  const symptomsFaMap = { itching: 'خارش', pain: 'درد', fever: 'تب' };
+  const prettySymptoms = (summary?.symptoms || []).map(s => symptomsFaMap[s] || s).join('، ');
+
+  const additionalText = (summary?.additional || '').trim();
+  const additionalChip = additionalText ? `
+    <span class="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700 max-w-full" title="${esc(additionalText)}">
+      <span class="hidden sm:inline">توضیحات:</span>
+      <span class="truncate max-w-[10rem] sm:max-w-[16rem] ms-1">${esc(additionalText)}</span>
+    </span>` : '';
+
+  /* توجه: عمداً هیچ چیپی برای وضعیت بازبینی پزشک تولید یا درج نمی‌کنیم. */
+
+  wrap.innerHTML = `
+    <div class="w-full rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5 shadow-sm">
+      <div class="flex items-center gap-4 sm:gap-5">
+        ${hasImg ? `
+          <div class="shrink-0 w-16 h-16 sm:w-20 sm:h-20 overflow-hidden rounded-xl border border-slate-200 bg-white flex items-center justify-center">
+            <img src="${summary.imgSrc}" alt="تصویر ارسال‌شده" class="max-w-full max-h-full object-cover" />
+          </div>` : ''
+        }
+        <div class="flex-1">
+          <div class="flex flex-wrap gap-2 sm:gap-2.5 text-[12px] sm:text-[13px]">
+            <span class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-indigo-700">سن: ${summary?.age ?? '—'}</span>
+            <span class="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-purple-700">جنسیت: ${summary?.gender ?? '—'}</span>
+            <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">زمان شروع: ${summary?.onset ?? '—'}</span>
+            ${(summary?.symptoms?.length) ? `<span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-700">علائم همراه: ${esc(prettySymptoms)}</span>` : ''}
+            ${additionalChip}
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  setTimeout(() => { try { if (typeof applyAutoFit === 'function') applyAutoFit(); } catch {} }, 0);
+}
+
+      /* --------- History storage --------- */
+      const HISTORY_KEY = 'sg_history';
+      function nowIso() { return new Date().toISOString(); }
+      function formatJalali(ts) {
+        try {
+          const d = new Date(ts);
+          const parts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+          }).formatToParts(d);
+          const get = (t) => parts.find(p => p.type === t)?.value || '';
+          const weekday = get('weekday'); const day = get('day'); const month = get('month'); const year = get('year');
+          let dateStr = `${weekday} ${day} ${month} ${year}`;
+          let timeStr = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+          const stripRtl = s => s.replace(/[\u200E\u200F]/g, '');
+          return `${stripRtl(dateStr)}، ساعت ${stripRtl(timeStr)}`;
+        } catch {
+          return new Date(ts).toLocaleString('fa-IR');
+        }
+      }
+      function loadHistory() {
+        try {
+          const raw = localStorage.getItem(HISTORY_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object') ? [parsed] : [];
+        } catch { return []; }
+      }
+      function saveHistory(list) {
+        try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }
+        catch {
+          while (list.length > 0) { list.pop(); try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); break; } catch {} }
+          console.warn('Storage full: trimmed older items.');
+        }
+      }
+      function saveAnalysisToHistory(summary, results) {
+        const list = loadHistory();
+        const item = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), ts: nowIso(), summary, results };
+        list.unshift(item);
+        saveHistory(list);
+        localStorage.setItem('sg_last_results', JSON.stringify(results));
+        localStorage.setItem('sg_last_summary', JSON.stringify(summary));
+        return item.id;
+      }
+      function deleteHistoryItem(id, cardEl) {
+        const list = loadHistory();
+        const idx = list.findIndex(x => x.id === id);
+        if (idx === -1) return;
+        if (cardEl) {
+          cardEl.classList.add('removing');
+          cardEl.addEventListener('transitionend', () => { cardEl.remove(); }, { once: true });
+        }
+        list.splice(idx, 1);
+        saveHistory(list);
+        if (loadHistory().length === 0) renderHistoryList();
+      }
+      function clearHistory() {
+        localStorage.removeItem(HISTORY_KEY);
+        renderHistoryList();
+      }
+
+      function chip(text, classes) { return `<span class="inline-flex items-center rounded-lg border ${classes} px-2.5 py-1 text-xs">${text}</span>`; }
+
+      function renderHistoryList() {
+        const list = loadHistory();
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = '';
+        if (!list.length) {
+          historyList.innerHTML = `
+            <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-6 text-center text-slate-600">
+              هنوز نتیجه‌ای ثبت نشده است.
+            </div>`; return;
+        }
+        const symptomsFaMap = { itching: 'خارش', pain: 'درد', fever: 'تب' };
+        const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        list.forEach(item => {
+          const s = item.summary || {};
+          const hasImg = s.imgSrc && s.imgSrc.startsWith('data:image');
+          const chips = [
+            chip(`سن: ${s.age ?? '—'}`, 'border-indigo-200 bg-indigo-50 text-indigo-700'),
+            chip(`جنسیت: ${s.gender ?? '—'}`, 'border-purple-200 bg-purple-50 text-purple-700'),
+            chip(`شروع: ${s.onset ?? '—'}`, 'border-sky-200 bg-sky-50 text-sky-700')
+          ];
+          if (Array.isArray(s.symptoms) && s.symptoms.length) {
+            const sym = s.symptoms.map(x => symptomsFaMap[x] || x).join('، ');
+            chips.push(chip(`علائم: ${esc(sym)}`, 'border-amber-200 bg-amber-50 text-amber-700'));
+          }
+          if (s.additional && s.additional.trim()) {
+            chips.push(chip(`توضیحات: ${esc(s.additional.trim())}`, 'border-slate-200 bg-white text-slate-700'));
+          }
+
+          /* ---- اضافه: چیپ وضعیت بازبینی پزشک در کارت تاریخچه ---- */
+          const st = s.reviewStatus || REVIEW_NONE;
+          if (st !== REVIEW_NONE) {
+            const reviewed = (st === REVIEW_DONE);
+            const cls = reviewed ? 'border-green-200 bg-green-50 text-green-700' : 'border-[#6366f1] bg-[#6366f1] text-white';
+            chips.push(chip(reviewed ? 'بررسی‌شده توسط پزشک' : 'در حال بررسی پزشک', cls));
+          }
+
+          const card = document.createElement('div');
+          card.className = 'history-card w-full text-right rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm transition-transform relative';
+          card.setAttribute('role', 'button');
+          card.tabIndex = 0;
+
+          card.innerHTML = `
+            <!-- دکمه حذف تکی -->
+            <button type="button" class="absolute top-2 left-2 rounded-full p-1.5 hover:bg-red-50 text-red-600 border border-red-100" aria-label="حذف این مورد" data-role="delete-card">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6a1 1 0 0 1 .98.804L16.89 5H20a1 1 0 1 1 0 2h-1v12a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7H4a1 1 0 1 1 0-2h3.11l.91-1.196A1 1 0 0 1 9 3Zm2 6a1 1 0 0 0-2 0v9a1 1 0 1 0 2 0V9Zm4 0a1 1 0 1 0-2 0v9a1 1 0 1 0 2 0V9Z"/></svg>
+            </button>
+
+            <!-- تاریخ/زمان راست‌چین در بالای کارت -->
+            <div class="mb-2">
+              <div class="text-xs sm:text-sm text-slate-500 text-right">${formatJalali(item.ts)}</div>
+            </div>
+
+            <!-- محتوای کارت -->
+            <div class="flex items-center gap-3 sm:gap-4">
+              ${hasImg ? `
+                <div class="shrink-0 w-14 h-14 sm:w-16 sm:h-16 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center">
+                  <img src="${s.imgSrc}" alt="تصویر تحلیل" class="max-w-full max-h-full object-cover" />
+                </div>` :
+                `<div class="shrink-0 w-14 h-14 sm:w-16 sm:h-16 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400">
+                  <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 7l3.6-3.6A2 2 0 018 2h8a2 2 0 011.4.6L21 7M3 7v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7"/>
+                  </svg>
+                </div>`}
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap gap-1.5 sm:gap-2">${chips.join('')}</div>
+              </div>
+            </div>
+          `;
+
+          // کلیک برای باز کردن
+          card.addEventListener('click', () => openHistoryItem(item.id));
+          card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHistoryItem(item.id); } });
+          // حذف با دیالوگ
+          const delBtn = card.querySelector('[data-role="delete-card"]');
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openDeleteSingleModal(item.id, card);
+          });
+
+          historyList.appendChild(card);
+        });
+      }
+
+      function showHistoryView() {
+        document.getElementById('header-subtitle').textContent = 'تاریخچهٔ بررسی‌های پوستی شما';
+        document.getElementById('form-steps-container').classList.add('hidden');
+        document.getElementById('navigation-buttons').classList.add('hidden');
+        document.getElementById('progress-container').classList.add('hidden');
+        document.getElementById('success-message').classList.add('hidden');
+        document.getElementById('results-buttons').classList.add('hidden');
+        document.getElementById('history-view').classList.remove('hidden');
+        renderHistoryList(); setTimeout(applyAutoFit, 0);
+      }
+      function backToHomeFromHistory() {resetForm();}
+      historyBackToForm.addEventListener('click', backToHomeFromHistory);
+
+      // ======= Modal helpers =======
+      const singleModal = document.getElementById('modal-delete-single');
+      const clearAllModal = document.getElementById('modal-clear-all');
+
+      function showModal(modalEl) {
+        modalEl.classList.add('show');
+        const panel = modalEl.querySelector('.modal-panel');
+        requestAnimationFrame(() => { panel.classList.add('show'); });
+        // Close on Esc
+        modalEl._escHandler = (e) => { if (e.key === 'Escape') hideModal(modalEl); };
+        document.addEventListener('keydown', modalEl._escHandler);
+        // Click outside
+        modalEl._outsideHandler = (e) => { if (e.target === modalEl) hideModal(modalEl); };
+        modalEl.addEventListener('click', modalEl._outsideHandler);
+      }
+      function hideModal(modalEl) {
+        const panel = modalEl.querySelector('.modal-panel');
+        panel.classList.remove('show');
+        modalEl.classList.remove('show');
+        document.removeEventListener('keydown', modalEl._escHandler || (()=>{}));
+        modalEl.removeEventListener('click', modalEl._outsideHandler || (()=>{}));
+      }
+
+      // Delete single modal flow
+      let pendingDelete = { id: null, card: null };
+      function openDeleteSingleModal(id, cardEl) {
+        pendingDelete.id = id; pendingDelete.card = cardEl;
+        showModal(singleModal);
+      }
+      singleModal.querySelector('[data-modal-action="cancel"]').addEventListener('click', () => { hideModal(singleModal); pendingDelete = { id:null, card:null }; });
+      singleModal.querySelector('[data-modal-action="confirm"]').addEventListener('click', () => {
+        if (pendingDelete.id) deleteHistoryItem(pendingDelete.id, pendingDelete.card);
+        hideModal(singleModal); pendingDelete = { id:null, card:null };
+      });
+
+      // Clear all modal flow
+      function openClearAllModal() { showModal(clearAllModal); }
+      clearAllModal.querySelector('[data-modal-action="cancel"]').addEventListener('click', () => hideModal(clearAllModal));
+      clearAllModal.querySelector('[data-modal-action="confirm"]').addEventListener('click', () => { hideModal(clearAllModal); clearHistory(); });
+
+      // حذف همه (دکمه)
+      historyClearAll.addEventListener('click', () => {
+        if (loadHistory().length === 0) return;
+        openClearAllModal();
+      });
+
+      function openHistoryItem(id) {
+        const list = loadHistory();
+        const found = list.find(x => x.id === id);
+        if (!found) { alert('مورد موردنظر پیدا نشد.'); return; }
+        document.getElementById('history-view').classList.add('hidden');
+        mainContainer.classList.add('results-shown');
+        document.getElementById('header-subtitle').textContent = 'نمایش نتیجهٔ ذخیره‌شده';
+        document.getElementById('form-steps-container').classList.add('hidden');
+        document.getElementById('navigation-buttons').classList.add('hidden');
+        document.getElementById('progress-container').classList.add('hidden');
+        document.getElementById('success-message').classList.remove('hidden');
+        document.getElementById('results-buttons').classList.remove('hidden');
+        renderResultsSummary(found.summary || {});
+        displayResults(found.results || []);
+        /* ---- اضافه: وضعیت و دکمه پزشک برای آیتم بازشده ---- */
+        currentHistoryId = id;
+        const st = found.summary?.reviewStatus || REVIEW_NONE;
+const reviseButton = document.getElementById('revise-button');
+
+// ریست ظاهر به حالت عادی
+reviseButton.classList.remove('btn-pending', 'hidden');
+reviseButton.classList.add('btn-primary');
+reviseButton.disabled = false;
+reviseButton.textContent = 'بررسی توسط پزشک';
+
+// اعمال وضعیت
+if (st === REVIEW_PENDING) {
+  reviseButton.classList.remove('btn-primary');
+  reviseButton.classList.add('btn-pending');
+  reviseButton.textContent = 'در حال بررسی توسط پزشک';
+  reviseButton.disabled = true;
+} else if (st === REVIEW_DONE) {
+  reviseButton.classList.add('hidden');
+}
+
+        setTimeout(applyAutoFit, 0);
+      }
+
+      // Menu
+      let deferredPrompt = null;
+      const menuButton = document.getElementById('menu-button');
+      const menuDropdown = document.getElementById('menu-dropdown');
+      const installBtn = document.getElementById('menu-install');
+      const historyBtn = document.getElementById('menu-history');
+      function toggleMenu(show) {
+        const shouldShow = typeof show === 'boolean' ? show : menuDropdown.classList.contains('hidden');
+        if (shouldShow) { menuDropdown.classList.remove('hidden'); menuButton.setAttribute('aria-expanded', 'true'); }
+        else { menuDropdown.classList.add('hidden'); menuButton.setAttribute('aria-expanded', 'false'); }
+        setTimeout(applyAutoFit, 0);
+      }
+      menuButton.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
+      document.addEventListener('click', (e) => { if (!menuDropdown.contains(e.target) && !menuButton.contains(e.target)) toggleMenu(false); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleMenu(false); });
+      window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; if (installBtn) installBtn.disabled = false; });
+      window.addEventListener('appinstalled', () => { deferredPrompt = null; if (installBtn) installBtn.disabled = true; });
+      installBtn.addEventListener('click', async () => {
+        toggleMenu(false); if (installBtn.disabled) return;
+        if (deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; installBtn.disabled = true; }
+        else { alert('اگر گزینهٔ نصب نمایش داده نمی‌شود، احتمالاً برنامه نصب شده یا مرورگر اجازهٔ نصب نمی‌دهد.'); }
+        setTimeout(applyAutoFit, 0);
+      });
+      historyBtn.addEventListener('click', () => { toggleMenu(false); showHistoryView(); });
+
+      // Submit
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (validateCurrentStep()) {
+          const submitButtonText = document.getElementById('submit-button-text');
+          const submitSpinner = document.getElementById('submit-spinner');
+          submitButton.disabled = true; submitButtonText.classList.add('hidden'); submitSpinner.style.display = 'block';
+
+          setTimeout(() => {
+            submitButton.disabled = false; submitButtonText.classList.remove('hidden'); submitSpinner.style.display = 'none';
+
+            mainContainer.classList.add('results-shown');
+            document.getElementById('header-subtitle').textContent = 'نتایج تحلیل شما در زیر ارائه شده است';
+            document.getElementById('form-steps-container').classList.add('hidden');
+            document.getElementById('navigation-buttons').classList.add('hidden');
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('success-message').classList.remove('hidden');
+            document.getElementById('results-buttons').classList.remove('hidden');
+
+            const genderVal = document.getElementById('gender').value;
+            const symptomsVal = document.getElementById('symptoms-hidden-input').value;
+            const summary = {
+              age: (document.getElementById('age').value || '—'),
+              gender: genderVal === 'female' ? 'زن' : (genderVal === 'male' ? 'مرد' : '—'),
+              onset: (document.getElementById('onset').value || '—'),
+              symptoms: symptomsVal ? symptomsVal.split(',').filter(Boolean) : [],
+              imgSrc: (currentImageThumb && currentImageThumb.startsWith('data:image')) ? currentImageThumb : '',
+              additional: (document.getElementById('additional-info').value || '').trim(),
+              /* ---- اضافه: وضعیت اولیه بازبینی پزشک ---- */
+              reviewStatus: REVIEW_NONE
+            };
+
+            renderResultsSummary(summary);
+            displayResults(mockDiagnoses);
+            const savedId = saveAnalysisToHistory(summary, mockDiagnoses);
+            currentHistoryId = savedId;
+            const rb = document.getElementById('revise-button');
+if (rb) {
+  rb.classList.remove('btn-pending', 'hidden');
+  rb.classList.add('btn-primary');
+  rb.disabled = false;
+  rb.textContent = 'بررسی توسط پزشک';
+}
+            setTimeout(applyAutoFit, 0);
+          }, 2000);
+        }
+      });
+
+      /* ---- اضافه: منطق دکمه «بررسی توسط پزشک» ---- */
+      const reviseButton = document.getElementById('revise-button');
+      function setReviewStatusForCurrent(status) {
+        if (!currentHistoryId) return;
+        const list = loadHistory();
+        const idx = list.findIndex(x => x.id === currentHistoryId);
+        if (idx === -1) return;
+        list[idx].summary = list[idx].summary || {};
+        list[idx].summary.reviewStatus = status;
+        saveHistory(list);
+        return list[idx].summary;
+      }
+      reviseButton.addEventListener('click', async () => {
+// به‌جای نامرئی کردن: غیرفعال + متن جدید + استایل نارنجی
+reviseButton.disabled = true;
+reviseButton.textContent = 'در حال بررسی توسط پزشک';
+reviseButton.classList.remove('btn-primary');
+reviseButton.classList.add('btn-pending');
+
+// سپس وضعیت را pending کن و خلاصه را رندر کن (این‌ها را نگه دار)
+const updatedSummary = setReviewStatusForCurrent(REVIEW_PENDING);
+try { renderResultsSummary(updatedSummary || {}); } catch {}
+        // تماس اختیاری با سرور (بعداً جایگزین کن)
+        try {
+          await fetch('https://your-api.com/reviews/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: currentHistoryId })
+          });
+        } catch (e) {
+          console.warn('Failed to request doctor review:', e);
+        }
+      });
+
+      // Reset form
+      function resetForm() {
+        form.reset();
+        document.querySelectorAll('.symptom-tag.selected').forEach(tag => tag.classList.remove('selected'));
+        selectedSymptoms = [];
+        const onsetLabel = document.getElementById('onset-label'); onsetLabel.textContent = 'زمان شروع علائم را انتخاب کنید....'; onsetLabel.classList.add('text-gray-500');
+        document.getElementById('remove-file').click();
+        document.getElementById('gender').value = '';
+        document.getElementById('onset').value = '';
+        document.getElementById('symptoms-hidden-input').value = '';
+        document.querySelectorAll('.validation-error-message').forEach(msg => { msg.style.visibility = 'hidden'; msg.textContent = ''; });
+        document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+        const resultsSummary = document.getElementById('results-summary'); if (resultsSummary) resultsSummary.innerHTML = '';
+        document.getElementById('history-view').classList.add('hidden'); mainContainer.classList.remove('results-shown');
+        document.getElementById('success-message').classList.add('hidden'); document.getElementById('results-buttons').classList.add('hidden');
+        document.getElementById('progress-container').classList.remove('hidden'); document.getElementById('form-steps-container').classList.remove('hidden'); document.getElementById('navigation-buttons').classList.remove('hidden');
+        document.getElementById('header-subtitle').textContent = 'با تکمیل سه مرحله ساده زیر، مشکل پوست خود را بهتر بشناسید.';
+        goToStep(1); ageInput.focus(); setTimeout(applyAutoFit, 0);
+        currentImageThumb = '';
+        currentHistoryId = null;
+      }
+      window.resetForm = resetForm;
+      startAgainButton.addEventListener('click', resetForm);
+
+      goToStep(1);
+      setTimeout(applyAutoFit, 0);
+    });
+  </script>
+</body>
+</html>
